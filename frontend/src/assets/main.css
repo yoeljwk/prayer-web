@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-serif: 'Newsreader', Georgia, Cambria, serif;
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background-color: #FFFFFF;
+    color: #09090B;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+.font-serif-custom {
+  font-family: 'Newsreader', 'Cormorant Garamond', Georgia, serif !important;
+}
+
+.font-sans-custom {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
+}

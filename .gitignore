@@ -1,0 +1,21 @@
+# Dependency directories
+node_modules/
+vendor/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Build and Storage
+public/build/
+public/storage/
+storage/
+dist/
+
+# System / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

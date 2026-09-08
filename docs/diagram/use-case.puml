@@ -1,0 +1,166 @@
+@startuml
+left to right direction
+
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+actor Guest
+actor User
+actor "Group Owner / Admin" as GroupAdmin
+actor "System Admin" as SystemAdmin
+
+rectangle "TwoOrThree Prayer Application" {
+
+  usecase "Register" as UC_Register
+  usecase "Login" as UC_Login
+  usecase "Logout" as UC_Logout
+
+  usecase "View Public Prayer Requests" as UC_ViewPrayer
+  usecase "Create Prayer Request" as UC_CreatePrayer
+  usecase "View Prayer Detail" as UC_PrayerDetail
+  usecase "Pray for Request" as UC_PrayerSupport
+  usecase "Comment on Prayer" as UC_Comment
+  usecase "Mark Prayer as Answered" as UC_Answered
+  usecase "Edit Prayer Request" as UC_EditPrayer
+  usecase "Delete Prayer Request" as UC_DeletePrayer
+
+  usecase "View Communities" as UC_ViewCommunity
+  usecase "Create Community" as UC_CreateCommunity
+  usecase "Join Community" as UC_JoinCommunity
+  usecase "Leave Community" as UC_LeaveCommunity
+  usecase "View Community Detail" as UC_CommunityDetail
+
+  usecase "Manage Community" as UC_ManageCommunity
+  usecase "Manage Members" as UC_ManageMembers
+  usecase "Approve Join Request" as UC_ApproveJoin
+  usecase "Remove Member" as UC_RemoveMember
+  usecase "Manage Member Role" as UC_ManageRole
+  usecase "Edit Community" as UC_EditCommunity
+
+  usecase "View Prayer Rooms" as UC_ViewRoom
+  usecase "Create Prayer Room" as UC_CreateRoom
+  usecase "Join Prayer Room" as UC_JoinRoom
+  usecase "Leave Prayer Room" as UC_LeaveRoom
+  usecase "Manage Prayer Room" as UC_ManageRoom
+  usecase "End Prayer Room" as UC_EndRoom
+
+  usecase "View Notifications" as UC_ViewNotification
+  usecase "Mark Notification as Read" as UC_ReadNotification
+
+  usecase "View Profile" as UC_ViewProfile
+  usecase "Edit Profile" as UC_EditProfile
+
+  usecase "Report Prayer Request" as UC_ReportPrayer
+
+  usecase "Manage Users" as UC_ManageUsers
+  usecase "Review Reports" as UC_ReviewReports
+  usecase "Moderate Prayer Requests" as UC_ModeratePrayer
+  usecase "Manage All Communities" as UC_AdminCommunity
+}
+
+' =========================
+' GUEST
+' =========================
+
+Guest --> UC_Register
+Guest --> UC_Login
+Guest --> UC_ViewPrayer
+Guest --> UC_PrayerDetail
+Guest --> UC_ViewCommunity
+Guest --> UC_ViewRoom
+
+
+' =========================
+' USER
+' =========================
+
+User --> UC_Logout
+
+User --> UC_ViewPrayer
+User --> UC_CreatePrayer
+User --> UC_PrayerDetail
+User --> UC_PrayerSupport
+User --> UC_Comment
+User --> UC_Answered
+User --> UC_EditPrayer
+User --> UC_DeletePrayer
+
+User --> UC_ViewCommunity
+User --> UC_CreateCommunity
+User --> UC_JoinCommunity
+User --> UC_LeaveCommunity
+User --> UC_CommunityDetail
+
+User --> UC_ViewRoom
+User --> UC_CreateRoom
+User --> UC_JoinRoom
+User --> UC_LeaveRoom
+
+User --> UC_ViewNotification
+User --> UC_ReadNotification
+
+User --> UC_ViewProfile
+User --> UC_EditProfile
+
+User --> UC_ReportPrayer
+
+
+' =========================
+' GROUP OWNER / ADMIN
+' =========================
+
+GroupAdmin --|> User
+
+GroupAdmin --> UC_ManageCommunity
+GroupAdmin --> UC_ManageMembers
+GroupAdmin --> UC_ApproveJoin
+GroupAdmin --> UC_RemoveMember
+GroupAdmin --> UC_ManageRole
+GroupAdmin --> UC_EditCommunity
+
+GroupAdmin --> UC_ManageRoom
+GroupAdmin --> UC_EndRoom
+
+
+' =========================
+' SYSTEM ADMIN
+' =========================
+
+SystemAdmin --|> User
+
+SystemAdmin --> UC_ManageUsers
+SystemAdmin --> UC_ReviewReports
+SystemAdmin --> UC_ModeratePrayer
+SystemAdmin --> UC_AdminCommunity
+
+
+' =========================
+' INCLUDE / EXTEND
+' =========================
+
+UC_CreatePrayer .> UC_Login : <<include>>
+UC_PrayerSupport .> UC_Login : <<include>>
+UC_Comment .> UC_Login : <<include>>
+UC_JoinCommunity .> UC_Login : <<include>>
+UC_CreateCommunity .> UC_Login : <<include>>
+UC_CreateRoom .> UC_Login : <<include>>
+UC_JoinRoom .> UC_Login : <<include>>
+UC_ReportPrayer .> UC_Login : <<include>>
+
+UC_ManageCommunity .> UC_EditCommunity : <<include>>
+UC_ManageCommunity .> UC_ManageMembers : <<include>>
+
+UC_ManageMembers .> UC_ApproveJoin : <<include>>
+UC_ManageMembers .> UC_RemoveMember : <<include>>
+UC_ManageMembers .> UC_ManageRole : <<include>>
+
+UC_ManageRoom .> UC_EndRoom : <<include>>
+
+UC_Answered .> UC_PrayerDetail : <<extend>>
+UC_Comment .> UC_PrayerDetail : <<extend>>
+UC_PrayerSupport .> UC_PrayerDetail : <<extend>>
+UC_ReportPrayer .> UC_PrayerDetail : <<extend>>
+
+UC_ReadNotification .> UC_ViewNotification : <<extend>>
+
+@enduml

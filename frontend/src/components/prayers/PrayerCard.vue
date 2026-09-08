@@ -27,36 +27,34 @@ const handlePrayClick = (e: MouseEvent) => {
     :class="{ 'bg-emerald-50/20 border-emerald-200/80 hover:border-emerald-300': isAnswered }"
   >
     <div>
-      <!-- Top Row: Pill Badge (Dari: ...) & Status Badge -->
+      <!-- Top Row: Author Pill & Visibility / Status Badges -->
       <div class="flex items-center justify-between gap-2 mb-4">
         <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-zinc-100/90 text-xs font-medium text-zinc-700">
           <span class="text-zinc-400 font-normal">Dari:</span>
           <span class="font-semibold text-zinc-900">{{ prayer.isAnonymous ? 'Anonim' : prayer.authorName }}</span>
         </span>
 
-        <span
-          v-if="isAnswered"
-          class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100/80 text-emerald-800"
-        >
-          <Check :size="13" class="stroke-[2.5]" />
-          <span>Doa Terjawab</span>
-        </span>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <!-- Answered Badge -->
+          <span
+            v-if="isAnswered"
+            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs"
+          >
+            <Check :size="12" class="stroke-[2.5]" />
+            <span>Terjawab</span>
+          </span>
 
-        <span
-          v-else-if="prayer.visibility === 'group' && prayer.groupName"
-          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-100 text-zinc-600"
-        >
-          <Users :size="12" />
-          <span class="truncate max-w-[120px]">{{ prayer.groupName }}</span>
-        </span>
 
-        <span
-          v-else-if="prayer.visibility === 'private'"
-          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-100 text-zinc-600"
-        >
-          <Lock :size="12" />
-          <span>Pribadi</span>
-        </span>
+
+          <!-- Visibility Badge: Private -->
+          <span
+            v-else-if="prayer.visibility === 'private'"
+            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200"
+          >
+            <Lock :size="12" class="text-amber-700" />
+            <span>Pribadi</span>
+          </span>
+        </div>
       </div>
 
       <!-- Prayer Message Text -->

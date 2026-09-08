@@ -1,18 +1,33 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { ArrowLeft, Users, Globe, Lock, Check, Clock, Share2, Copy } from 'lucide-vue-next'
 import type { Community } from '@/types'
 import { toggleCommunityJoin } from '@/data/mockCommunities'
+
+const router = useRouter()
 
 const props = defineProps<{
   community: Community
 }>()
 
+const emit = defineEmits<{
+  (e: 'toggle-join'): void
+}>()
+
 const isCopied = ref(false)
 
+const handleGoBack = () => {
+  if (window.history.length > 1 && window.history.state?.back) {
+    router.back()
+  } else {
+    router.push('/komunitas')
+  }
+}
+
 const handleShareInvite = () => {
-  navigator.clipboard.writeText(window.location.href)
+  const textToCopy = props.community.inviteCode ? props.community.inviteCode : window.location.href
+  navigator.clipboard.writeText(textToCopy)
   isCopied.value = true
   setTimeout(() => {
     isCopied.value = false
@@ -20,7 +35,7 @@ const handleShareInvite = () => {
 }
 
 const handleJoinToggle = () => {
-  toggleCommunityJoin(props.community.slug)
+  emit('toggle-join')
 }
 </script>
 
@@ -28,14 +43,15 @@ const handleJoinToggle = () => {
   <div class="bg-white border-b border-zinc-200/80 pt-8 pb-10">
     <div class="max-w-5xl mx-auto px-6">
       
-      <!-- Back Link -->
-      <RouterLink
-        to="/komunitas"
+      <!-- Back Button -->
+      <button
+        type="button"
+        @click="handleGoBack"
         class="inline-flex items-center gap-2 text-xs font-semibold text-zinc-500 hover:text-black transition-colors mb-6 group cursor-pointer"
       >
         <ArrowLeft :size="16" class="group-hover:-translate-x-1 transition-transform" />
-        <span>Kembali ke Daftar Komunitas</span>
-      </RouterLink>
+        <span>Kembali</span>
+      </button>
 
       <!-- Main Header Card Content -->
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
@@ -77,6 +93,12 @@ const handleJoinToggle = () => {
               </div>
               <span class="text-zinc-300">•</span>
               <span>Dibuat {{ community.createdAt }}</span>
+              <template v-if="community.inviteCode && community.userRole === 'owner'">
+                <span class="text-zinc-300">•</span>
+                <span class="font-mono text-black font-semibold bg-zinc-100 px-2 py-0.5 rounded text-[11px]">
+                  Kode: {{ community.inviteCode }}
+                </span>
+              </template>
             </div>
           </div>
         </div>
@@ -87,10 +109,11 @@ const handleJoinToggle = () => {
             type="button"
             @click="handleShareInvite"
             class="flex-1 sm:flex-initial px-4 py-3 rounded-xl border border-zinc-200 hover:border-zinc-300 bg-white hover:bg-zinc-50 text-zinc-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+            :title="community.userRole === 'owner' && community.inviteCode ? 'Salin Kode Undangan' : 'Bagikan Tautan Komunitas'"
           >
             <Check v-if="isCopied" :size="15" class="text-emerald-600" />
             <Share2 v-else :size="15" />
-            <span>{{ isCopied ? 'Tersalin!' : 'Bagikan Undangan' }}</span>
+            <span>{{ isCopied ? 'Tersalin!' : (community.userRole === 'owner' && community.inviteCode ? 'Salin Kode Undangan' : 'Bagikan Komunitas') }}</span>
           </button>
 
           <button

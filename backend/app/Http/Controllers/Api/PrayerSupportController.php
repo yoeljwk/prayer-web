@@ -53,4 +53,35 @@ class PrayerSupportController extends Controller
             ],
         ]);
     }
+
+    public function mySupports(): JsonResponse
+    {
+        $userId = request()->user()->id;
+
+        $supports = PrayerSupport::where('user_id', $userId)
+            ->with(['prayerRequest' => function ($q) {
+                $q->with([
+                    'user:id,name,username,avatar',
+                    'group:id,name,slug',
+                ])->withCount([
+                    'supports',
+                    'comments',
+                ]);
+            }])
+            ->latest('prayed_at')
+            ->get();
+
+        $prayers = $supports->map(function ($support) {
+            $prayer = $support->prayerRequest;
+            if ($prayer) {
+                $prayer->has_prayed = true;
+            }
+            return $prayer;
+        })->filter()->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $prayers,
+        ]);
+    }
 }

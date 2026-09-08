@@ -10,6 +10,7 @@ class PrayerComment extends Model
         'prayer_request_id',
         'user_id',
         'content',
+        'is_anonymous',
     ];
 
     public function prayerRequest()

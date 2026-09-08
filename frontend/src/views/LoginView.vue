@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink, useRouter, useRoute } from 'vue-router'
 import { Eye, EyeOff, ArrowRight } from 'lucide-vue-next'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import SuccessModal from '@/components/common/SuccessModal.vue'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 const usernameOrEmail = ref('')
@@ -22,8 +23,11 @@ const togglePasswordVisibility = () => {
   showPassword.value = !showPassword.value
 }
 
-const navigateHome = () => {
-  router.push('/')
+// Navigate to the original destination after login, or fall back to home.
+// The ?redirect param is set by the navigation guard in router/index.ts.
+const navigateAfterLogin = () => {
+  const redirect = route.query.redirect as string | undefined
+  router.push(redirect || '/')
 }
 
 const handleLogin = async () => {
@@ -198,7 +202,7 @@ const handleLogin = async () => {
       message="Anda telah berhasil masuk. Klik tombol di bawah untuk melanjutkan ke halaman utama."
       :user-name="loggedInUserName"
       button-text="Lanjutkan ke Beranda"
-      @confirm="navigateHome"
+      @confirm="navigateAfterLogin"
     />
   </div>
 </template>

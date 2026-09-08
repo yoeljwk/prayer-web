@@ -42,6 +42,16 @@ class UpdatePrayerRequest extends FormRequest
                 'integer',
                 'exists:prayer_groups,id',
             ],
+
+            'status' => [
+                'sometimes',
+                Rule::in(['active', 'answered']),
+            ],
+
+            'answered_at' => [
+                'nullable',
+                'date',
+            ],
         ];
     }
 }

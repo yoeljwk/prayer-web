@@ -1,30 +1,27 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { X, Globe, Lock, Upload, Image as ImageIcon } from 'lucide-vue-next'
-import type { CommunityVisibility } from '@/types'
+import { X, Globe, Lock, Upload } from 'lucide-vue-next'
+import type { Community, CommunityVisibility } from '@/types'
 import api from '@/services/api'
-import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{
   isOpen: boolean
+  group: Community | null
 }>()
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'created', slug: string): void
+  (e: 'updated', group: Community): void
 }>()
-
-const authStore = useAuthStore()
 
 const name = ref('')
 const description = ref('')
 const visibility = ref<CommunityVisibility>('public')
 const maxMembers = ref<number | undefined>(undefined)
-const avatarUrl = ref('https://images.unsplash.com/photo-1519817650390-64a93db51149?w=150&auto=format&fit=crop&q=80')
+const avatarUrl = ref('')
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 
-// Avatar presets
 const presetAvatars = [
   'https://images.unsplash.com/photo-1519817650390-64a93db51149?w=150&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=150&auto=format&fit=crop&q=80',
@@ -32,6 +29,35 @@ const presetAvatars = [
   'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=150&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1511895426328-dc8714191300?w=150&auto=format&fit=crop&q=80',
 ]
+
+const populateForm = () => {
+  if (props.group) {
+    const g = props.group as any
+    name.value = g.name || ''
+    description.value = g.description || ''
+    visibility.value = g.visibility || 'public'
+    maxMembers.value = g.maxMembers ?? g.max_members ?? undefined
+    avatarUrl.value = g.avatar || presetAvatars[0] || ''
+  }
+  errorMessage.value = ''
+}
+
+watch(
+  () => props.group,
+  () => {
+    populateForm()
+  },
+  { immediate: true }
+)
+
+watch(
+  () => props.isOpen,
+  (open) => {
+    if (open) {
+      populateForm()
+    }
+  }
+)
 
 const handleFileUpload = (event: Event) => {
   const target = event.target as HTMLInputElement
@@ -47,37 +73,14 @@ const handleFileUpload = (event: Event) => {
   }
 }
 
-const resetForm = () => {
-  name.value = ''
-  description.value = ''
-  visibility.value = 'public'
-  maxMembers.value = undefined
-  errorMessage.value = ''
-  avatarUrl.value = presetAvatars[0] || 'https://images.unsplash.com/photo-1519817650390-64a93db51149?w=150&auto=format&fit=crop&q=80'
-}
-
-watch(
-  () => props.isOpen,
-  (open) => {
-    if (!open) {
-      resetForm()
-    }
-  }
-)
-
 const handleSubmit = async () => {
-  if (!name.value.trim() || !description.value.trim() || isSubmitting.value) return
-
-  if (!authStore.isAuthenticated) {
-    errorMessage.value = 'Silakan masuk (login) terlebih dahulu untuk membuat komunitas.'
-    return
-  }
+  if (!props.group || !name.value.trim() || !description.value.trim() || isSubmitting.value) return
 
   isSubmitting.value = true
   errorMessage.value = ''
 
   try {
-    const res = await api.post('/groups', {
+    const res = await api.put(`/groups/${props.group.id}`, {
       name: name.value.trim(),
       description: description.value.trim(),
       visibility: visibility.value,
@@ -85,13 +88,12 @@ const handleSubmit = async () => {
       avatar: avatarUrl.value,
     })
 
-    if (res.data && res.data.success && res.data.data) {
-      const createdSlug = res.data.data.slug || String(res.data.data.id)
-      emit('created', createdSlug)
+    if (res.data && res.data.success) {
+      emit('updated', res.data.data)
       emit('close')
     }
   } catch (err: any) {
-    errorMessage.value = err.response?.data?.message || 'Gagal membuat komunitas doa.'
+    errorMessage.value = err.response?.data?.message || 'Gagal memperbarui komunitas doa.'
   } finally {
     isSubmitting.value = false
   }
@@ -129,10 +131,10 @@ const handleSubmit = async () => {
               <div class="p-6 border-b border-zinc-100 flex items-center justify-between">
                 <div>
                   <h2 class="font-serif-custom text-2xl font-normal text-black tracking-tight">
-                    Buat Komunitas
+                    Edit Komunitas
                   </h2>
                   <p class="text-xs text-zinc-500 mt-1">
-                    Bentuk wadah persekutuan dan doa bersama komunitas baru.
+                    Perbarui informasi dan pengaturan komunitas Anda.
                   </p>
                 </div>
                 <button
@@ -158,7 +160,7 @@ const handleSubmit = async () => {
                   </label>
                   <div class="flex items-center gap-4 mb-3">
                     <img
-                      :src="avatarUrl"
+                      :src="avatarUrl || presetAvatars[0]"
                       alt="Avatar Preview"
                       class="w-16 h-16 rounded-2xl object-cover border border-zinc-200 shadow-2xs"
                     />
@@ -188,26 +190,26 @@ const handleSubmit = async () => {
 
                 <!-- Nama Komunitas -->
                 <div>
-                  <label for="comm-name" class="block text-xs font-semibold text-zinc-800 uppercase tracking-wider mb-2">
+                  <label for="edit-comm-name" class="block text-xs font-semibold text-zinc-800 uppercase tracking-wider mb-2">
                     Nama Komunitas <span class="text-red-500">*</span>
                   </label>
                   <input
-                    id="comm-name"
+                    id="edit-comm-name"
                     v-model="name"
                     type="text"
                     required
-                    placeholder="Contoh: Doa Malam Syafaat"
+                    placeholder="Nama komunitas"
                     class="w-full px-4 py-3 rounded-xl border border-zinc-300 text-sm text-black placeholder-zinc-400 focus:outline-none focus:border-black focus:ring-1 focus:ring-black bg-white"
                   />
                 </div>
 
                 <!-- Deskripsi -->
                 <div>
-                  <label for="comm-desc" class="block text-xs font-semibold text-zinc-800 uppercase tracking-wider mb-2">
+                  <label for="edit-comm-desc" class="block text-xs font-semibold text-zinc-800 uppercase tracking-wider mb-2">
                     Deskripsi Singkat <span class="text-red-500">*</span>
                   </label>
                   <textarea
-                    id="comm-desc"
+                    id="edit-comm-desc"
                     v-model="description"
                     rows="3"
                     required
@@ -256,7 +258,7 @@ const handleSubmit = async () => {
                         <span class="text-xs font-bold text-black">Privat</span>
                       </div>
                       <p class="text-[11px] text-zinc-500 leading-normal">
-                        Memerlukan persetujuan admin untuk bergabung.
+                        Memerlukan kode undangan untuk bergabung.
                       </p>
                     </button>
                   </div>
@@ -264,11 +266,11 @@ const handleSubmit = async () => {
 
                 <!-- Max Member Optional -->
                 <div>
-                  <label for="comm-max" class="block text-xs font-semibold text-zinc-800 uppercase tracking-wider mb-2">
+                  <label for="edit-comm-max" class="block text-xs font-semibold text-zinc-800 uppercase tracking-wider mb-2">
                     Maksimal Anggota <span class="text-zinc-400 font-normal font-sans">(Opsional)</span>
                   </label>
                   <input
-                    id="comm-max"
+                    id="edit-comm-max"
                     v-model.number="maxMembers"
                     type="number"
                     min="2"
@@ -288,10 +290,10 @@ const handleSubmit = async () => {
                   </button>
                   <button
                     type="submit"
-                    :disabled="!name.trim() || !description.trim()"
+                    :disabled="!name.trim() || !description.trim() || isSubmitting"
                     class="px-6 py-3 rounded-xl text-xs font-semibold bg-black text-white hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer shadow-2xs"
                   >
-                    Buat Komunitas
+                    {{ isSubmitting ? 'Simpan...' : 'Simpan Perubahan' }}
                   </button>
                 </div>
               </form>

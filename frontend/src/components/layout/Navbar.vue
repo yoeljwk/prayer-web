@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { RouterLink, useRouter, useRoute } from 'vue-router'
-import { User, Menu, X, LogOut } from 'lucide-vue-next'
+import { User, Menu, X, LogOut, LayoutDashboard } from 'lucide-vue-next'
 import type { NavItem } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
@@ -66,7 +66,9 @@ const handleClickOutside = (event: MouseEvent) => {
 }
 
 onMounted(() => {
-  if (authStore.token && !authStore.user) {
+  // Always refresh user data from server on mount (not just when cache is empty)
+  // so that profile changes are reflected without requiring logout/login.
+  if (authStore.isAuthenticated) {
     authStore.fetchUser()
   }
   document.addEventListener('click', handleClickOutside)
@@ -166,9 +168,19 @@ onUnmounted(() => {
                   <p class="text-xs font-semibold text-black truncate">{{ authStore.user?.name }}</p>
                   <p class="text-[11px] text-zinc-400 truncate mt-0.5">@{{ authStore.user?.username }}</p>
                 </div>
+
+                <RouterLink
+                  to="/dashboard"
+                  @click="closeUserDropdown"
+                  class="w-full text-left px-4 py-2.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  <LayoutDashboard :size="15" />
+                  <span>Dashboard Saya</span>
+                </RouterLink>
+
                 <button 
                   @click="handleLogout"
-                  class="w-full text-left px-4 py-2.5 text-xs font-semibold text-red-600 hover:bg-zinc-50 flex items-center gap-2 transition-colors cursor-pointer mt-1"
+                  class="w-full text-left px-4 py-2.5 text-xs font-semibold text-red-600 hover:bg-zinc-50 flex items-center gap-2 transition-colors cursor-pointer border-t border-zinc-100 mt-1"
                 >
                   <LogOut :size="15" />
                   <span>Keluar (Logout)</span>
@@ -218,15 +230,19 @@ onUnmounted(() => {
 
         <!-- Authenticated State (Mobile) -->
         <div v-else class="space-y-3">
-          <div class="flex items-center gap-3 px-1">
+          <RouterLink
+            to="/dashboard"
+            @click="closeMobileMenu"
+            class="flex items-center gap-3 px-1 py-1"
+          >
             <div class="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center shrink-0">
               <User :size="20" />
             </div>
             <div class="truncate">
               <p class="text-sm font-semibold text-black truncate">{{ authStore.user?.name }}</p>
-              <p class="text-xs text-zinc-500 truncate">@{{ authStore.user?.username }}</p>
+              <p class="text-xs text-zinc-500 truncate">@{{ authStore.user?.username }} • <span class="underline font-medium text-black">Dashboard</span></p>
             </div>
-          </div>
+          </RouterLink>
           <button 
             @click="handleLogout"
             class="w-full bg-zinc-100 hover:bg-zinc-200 text-red-600 text-xs font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer"

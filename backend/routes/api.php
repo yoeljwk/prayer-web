@@ -7,7 +7,7 @@ use App\Http\Controllers\Api\PrayerSupportController;
 
 // Public Auth & Prayer Routes
 Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->name('login');
 
 Route::get('/test', function () {
     return response()->json([

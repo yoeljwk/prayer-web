@@ -1,29 +1,87 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Plus, Search, Filter, RefreshCw, Users } from 'lucide-vue-next'
-import { mockCommunitiesState } from '@/data/mockCommunities'
+import { Plus, Search, Filter, RefreshCw, Users, KeyRound } from 'lucide-vue-next'
+import api from '@/services/api'
+import type { Community } from '@/types'
+import { useQueryState } from '@/composables/useQueryState'
 import CommunityCard from '@/components/community/CommunityCard.vue'
 import CommunitySkeleton from '@/components/community/CommunitySkeleton.vue'
 import CreateCommunityModal from '@/components/community/CreateCommunityModal.vue'
+import JoinByCodeModal from '@/components/community/JoinByCodeModal.vue'
+
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 
-// UI state
-const searchQuery = ref('')
-const selectedFilter = ref<'all' | 'public' | 'private' | 'joined'>('all')
+// searchQuery is initialized from URL (?q=) so direct URL access and refresh work correctly.
+const searchQuery = ref((route.query.q as string) || '')
+// selectedFilter is synced with URL query param (?tab=public|joined).
+// Persists on refresh and restores on Back/Forward navigation.
+const selectedFilter = useQueryState<'public' | 'joined'>('tab', 'public')
 const isLoading = ref(false)
 const isCreateModalOpen = ref(false)
+const isJoinCodeModalOpen = ref(false)
+const apiCommunities = ref<Community[]>([])
 
-// Check if URL is /komunitas/create or /communities/create
+const fetchCommunities = async () => {
+  isLoading.value = true
+  try {
+    const params: Record<string, any> = {}
+    if (searchQuery.value.trim()) {
+      params.search = searchQuery.value.trim()
+    }
+
+    if (selectedFilter.value === 'public') {
+      params.visibility = 'public'
+      params.not_joined = true
+    } else if (selectedFilter.value === 'joined') {
+      params.joined = true
+    }
+
+    const res = await api.get('/groups', { params })
+    if (res.data && res.data.success && Array.isArray(res.data.data)) {
+      apiCommunities.value = res.data.data.map((item: any) => ({
+        id: String(item.id),
+        slug: item.slug || String(item.id),
+        name: item.name,
+        description: item.description || '',
+        avatar: item.avatar || 'https://images.unsplash.com/photo-1544427920-c49ccfb85579?q=80&w=400&auto=format&fit=crop',
+        visibility: item.visibility,
+        memberCount: item.members_count || 0,
+        maxMembers: item.max_members || 100,
+        joinStatus: item.is_joined ? 'joined' : 'not_joined',
+        createdAt: 'Baru saja',
+        members: [],
+        activities: [],
+        prayers: [],
+      }))
+    }
+  } catch (err) {
+    console.error('Failed to fetch communities:', err)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Route-driven modal state: open modal when on /create, close it when navigating away.
 const checkRouteState = () => {
   if (route.path.endsWith('/create')) {
+    if (!authStore.isAuthenticated) {
+      router.replace('/masuk')
+      return
+    }
     isCreateModalOpen.value = true
+  } else {
+    // Base route (/komunitas) — close modal (handles Back button)
+    isCreateModalOpen.value = false
   }
 }
 
 onMounted(() => {
+  fetchCommunities()
   checkRouteState()
 })
 
@@ -34,41 +92,48 @@ watch(
   }
 )
 
-// Computed filtered communities
-const filteredCommunities = computed(() => {
-  let list = [...mockCommunitiesState]
-
-  // Search filter
-  if (searchQuery.value.trim()) {
-    const query = searchQuery.value.toLowerCase().trim()
-    list = list.filter(
-      (c) =>
-        c.name.toLowerCase().includes(query) ||
-        c.description.toLowerCase().includes(query)
-    )
-  }
-
-  // Filter tabs: Semua, Public, Private, Sudah Diikuti
-  if (selectedFilter.value === 'public') {
-    list = list.filter((c) => c.visibility === 'public')
-  } else if (selectedFilter.value === 'private') {
-    list = list.filter((c) => c.visibility === 'private')
-  } else if (selectedFilter.value === 'joined') {
-    list = list.filter((c) => c.joinStatus === 'joined')
-  }
-
-  return list
+watch(selectedFilter, () => {
+  fetchCommunities()
 })
 
-// Trigger mock loading
-const triggerMockLoading = () => {
-  isLoading.value = true
-  setTimeout(() => {
-    isLoading.value = false
-  }, 500)
+const handleSearchSubmit = () => {
+  const query = { ...route.query }
+  if (searchQuery.value.trim()) {
+    query.q = searchQuery.value.trim()
+  } else {
+    delete query.q
+  }
+  router.replace({ query })
+  fetchCommunities()
 }
 
+// Restore search query and re-fetch when Back/Forward navigation changes ?q=.
+watch(
+  () => route.query.q,
+  (val) => {
+    const restored = (val as string) || ''
+    if (restored !== searchQuery.value) {
+      searchQuery.value = restored
+      fetchCommunities()
+    }
+  },
+)
+
+const filteredCommunities = computed(() => {
+  if (selectedFilter.value === 'public') {
+    return apiCommunities.value.filter((c) => c.joinStatus !== 'joined')
+  }
+  if (selectedFilter.value === 'joined') {
+    return apiCommunities.value.filter((c) => c.joinStatus === 'joined')
+  }
+  return apiCommunities.value
+})
+
 const handleOpenCreateModal = () => {
+  if (!authStore.isAuthenticated) {
+    router.push('/masuk')
+    return
+  }
   isCreateModalOpen.value = true
   router.push('/komunitas/create')
 }
@@ -81,6 +146,7 @@ const handleCloseCreateModal = () => {
 }
 
 const handleCommunityCreated = (slug: string) => {
+  fetchCommunities()
   router.push(`/komunitas/${slug}`)
 }
 </script>
@@ -101,20 +167,31 @@ const handleCommunityCreated = (slug: string) => {
             </p>
           </div>
 
-          <!-- Main Button: Buat Komunitas -->
-          <button
-            type="button"
-            @click="handleOpenCreateModal"
-            class="hidden sm:inline-flex items-center gap-2 bg-black hover:bg-zinc-800 text-white font-semibold text-xs uppercase tracking-wider px-5 py-3 rounded-xl shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer shrink-0"
-          >
-            <Plus :size="16" class="stroke-[2.5]" />
-            <span>Buat Komunitas</span>
-          </button>
+          <!-- Main Buttons: Gabung via Kode & Buat Komunitas (Only for authenticated users) -->
+          <div v-if="authStore.isAuthenticated" class="hidden sm:flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              @click="isJoinCodeModalOpen = true"
+              class="inline-flex items-center gap-2 bg-white hover:bg-zinc-100 text-zinc-800 font-semibold text-xs border border-zinc-200 uppercase tracking-wider px-5 py-3 rounded-xl shadow-2xs transition-all duration-200 cursor-pointer"
+            >
+              <KeyRound :size="15" />
+              <span>Gabung via Kode</span>
+            </button>
+
+            <button
+              type="button"
+              @click="handleOpenCreateModal"
+              class="inline-flex items-center gap-2 bg-black hover:bg-zinc-800 text-white font-semibold text-xs uppercase tracking-wider px-5 py-3 rounded-xl shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer"
+            >
+              <Plus :size="16" class="stroke-[2.5]" />
+              <span>Buat Komunitas</span>
+            </button>
+          </div>
         </div>
       </div>
 
       <!-- Search Input Section -->
-      <form @submit.prevent class="mb-6 flex items-center gap-3">
+      <form @submit.prevent="handleSearchSubmit" class="mb-6 flex items-center gap-3">
         <div class="relative flex-1">
           <input
             v-model="searchQuery"
@@ -133,6 +210,7 @@ const handleCommunityCreated = (slug: string) => {
         </button>
 
         <button
+          v-if="authStore.isAuthenticated"
           type="button"
           @click="handleOpenCreateModal"
           class="sm:hidden bg-black hover:bg-zinc-800 text-white p-3.5 rounded-xl transition-colors cursor-pointer shrink-0"
@@ -142,49 +220,34 @@ const handleCommunityCreated = (slug: string) => {
         </button>
       </form>
 
-      <!-- Filter Chips Bar & Refresh Button -->
-      <div class="flex items-center justify-between gap-3 mb-8 pb-1 overflow-x-auto scrollbar-none">
+      <!-- Filter Chips Bar (Only for authenticated users) -->
+      <div
+        v-if="authStore.isAuthenticated"
+        class="flex items-center justify-between gap-3 mb-8 pb-1 overflow-x-auto scrollbar-none"
+      >
         <div class="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            @click="selectedFilter = 'all'"
-            class="px-4 py-2 rounded-full text-xs font-semibold transition-colors cursor-pointer"
-            :class="selectedFilter === 'all' ? 'bg-black text-white' : 'bg-white hover:bg-zinc-100 border border-zinc-200 text-zinc-700'"
-          >
-            Semua Komunitas
-          </button>
-
-          <button
-            type="button"
             @click="selectedFilter = 'public'"
-            class="px-4 py-2 rounded-full text-xs font-semibold transition-colors cursor-pointer"
-            :class="selectedFilter === 'public' ? 'bg-black text-white' : 'bg-white hover:bg-zinc-100 border border-zinc-200 text-zinc-700'"
+            class="px-5 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer select-none"
+            :class="selectedFilter === 'public' ? 'bg-black text-white shadow-xs' : 'bg-white hover:bg-zinc-100 border border-zinc-200 text-zinc-700'"
           >
             Publik
           </button>
 
           <button
             type="button"
-            @click="selectedFilter = 'private'"
-            class="px-4 py-2 rounded-full text-xs font-semibold transition-colors cursor-pointer"
-            :class="selectedFilter === 'private' ? 'bg-black text-white' : 'bg-white hover:bg-zinc-100 border border-zinc-200 text-zinc-700'"
-          >
-            Privat
-          </button>
-
-          <button
-            type="button"
             @click="selectedFilter = 'joined'"
-            class="px-4 py-2 rounded-full text-xs font-semibold transition-colors cursor-pointer"
-            :class="selectedFilter === 'joined' ? 'bg-black text-white' : 'bg-white hover:bg-zinc-100 border border-zinc-200 text-zinc-700'"
+            class="px-5 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer select-none"
+            :class="selectedFilter === 'joined' ? 'bg-black text-white shadow-xs' : 'bg-white hover:bg-zinc-100 border border-zinc-200 text-zinc-700'"
           >
-            Sudah Diikuti
+            Komunitas Saya
           </button>
         </div>
 
         <button
           type="button"
-          @click="triggerMockLoading"
+          @click="fetchCommunities"
           title="Refresh list"
           class="p-2 rounded-lg text-zinc-400 hover:text-black hover:bg-zinc-100 transition-colors cursor-pointer shrink-0"
         >
@@ -204,6 +267,8 @@ const handleCommunityCreated = (slug: string) => {
               v-for="community in filteredCommunities"
               :key="community.id"
               :community="community"
+              @joined="fetchCommunities"
+              @join-code="isJoinCodeModalOpen = true"
             />
           </div>
         </template>
@@ -224,7 +289,7 @@ const handleCommunityCreated = (slug: string) => {
           </p>
           <button
             type="button"
-            @click="searchQuery = ''; selectedFilter = 'all'"
+            @click="searchQuery = ''; selectedFilter = 'public'"
             class="mt-2 text-xs font-semibold text-black underline underline-offset-4 cursor-pointer"
           >
             Reset Filter
@@ -234,11 +299,17 @@ const handleCommunityCreated = (slug: string) => {
 
     </div>
 
-    <!-- Create Community Modal -->
+    <!-- Modals -->
     <CreateCommunityModal
       :is-open="isCreateModalOpen"
       @close="handleCloseCreateModal"
       @created="handleCommunityCreated"
+    />
+
+    <JoinByCodeModal
+      :is-open="isJoinCodeModalOpen"
+      @close="isJoinCodeModalOpen = false"
+      @joined="handleCommunityCreated"
     />
   </div>
 </template>

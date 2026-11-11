@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { X, Globe, Users, Lock, Send, Check } from 'lucide-vue-next'
 import type { PrayerVisibility, PrayerRequest } from '@/types'
-import { mockGroups } from '@/data/mockPrayers'
+import { useRouter } from 'vue-router'
 import api from '@/services/api'
+import { useAuthStore } from '@/stores/auth'
 
-defineProps<{
+const props = defineProps<{
   isOpen: boolean
+  defaultGroupId?: number | string
+  defaultVisibility?: PrayerVisibility
 }>()
 
 const emit = defineEmits<{
@@ -14,14 +17,45 @@ const emit = defineEmits<{
   (e: 'submit-prayer', newPrayer?: any): void
 }>()
 
+const router = useRouter()
+const authStore = useAuthStore()
+
 const content = ref('')
 const isPublic = ref(true)
 const isGroup = ref(false)
 const isPrivate = ref(false)
-const selectedGroup = ref(mockGroups[0])
+const userGroups = ref<{ id: number | string; name: string }[]>([])
+const selectedGroupId = ref<number | string | null>(null)
 const isAnonymous = ref(false)
 const isSubmitting = ref(false)
+const errorMessage = ref('')
 const maxChars = 500
+
+const fetchUserGroups = async () => {
+  try {
+    const res = await api.get('/groups')
+    if (res.data && res.data.success && Array.isArray(res.data.data)) {
+      userGroups.value = res.data.data.map((g: any) => ({
+        id: g.id,
+        name: g.name,
+      }))
+      if (userGroups.value.length > 0 && !selectedGroupId.value) {
+        selectedGroupId.value = userGroups.value[0]?.id || null
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load user groups:', err)
+  }
+}
+
+watch(
+  () => isGroup.value,
+  (val: boolean) => {
+    if (val && userGroups.value.length === 0) {
+      fetchUserGroups()
+    }
+  }
+)
 
 const charCount = computed(() => content.value.length)
 const isOverLimit = computed(() => charCount.value > maxChars)
@@ -55,12 +89,32 @@ const togglePrivate = () => {
 
 const resetForm = () => {
   content.value = ''
-  isPublic.value = true
-  isGroup.value = false
-  isPrivate.value = false
-  selectedGroup.value = mockGroups[0]
+  errorMessage.value = ''
+  if (props.defaultGroupId) {
+    selectedGroupId.value = props.defaultGroupId
+    isGroup.value = true
+    isPublic.value = false
+    isPrivate.value = false
+  } else {
+    isPublic.value = true
+    isGroup.value = false
+    isPrivate.value = false
+    selectedGroupId.value = userGroups.value[0]?.id || null
+  }
   isAnonymous.value = false
 }
+
+watch(
+  () => props.isOpen,
+  (open) => {
+    if (open) {
+      resetForm()
+      if (props.defaultGroupId || isGroup.value) {
+        fetchUserGroups()
+      }
+    }
+  }
+)
 
 const handleClose = () => {
   resetForm()
@@ -69,6 +123,15 @@ const handleClose = () => {
 
 const handleSubmit = async () => {
   if (!isValid.value || isSubmitting.value) return
+
+  if (!authStore.isAuthenticated) {
+    errorMessage.value = 'Anda belum masuk. Silakan login terlebih dahulu untuk membagikan doa.'
+    setTimeout(() => {
+      handleClose()
+      router.push('/masuk')
+    }, 1200)
+    return
+  }
 
   let computedVisibility: PrayerVisibility = 'public'
   if (isPrivate.value) {
@@ -80,19 +143,30 @@ const handleSubmit = async () => {
   }
 
   isSubmitting.value = true
+  errorMessage.value = ''
 
   try {
     const response = await api.post('/prayers', {
       content: content.value.trim(),
       visibility: computedVisibility,
+      prayer_group_id: isGroup.value ? selectedGroupId.value : null,
       is_anonymous: isAnonymous.value,
     })
 
     emit('submit-prayer', response.data?.data)
     resetForm()
     emit('close')
-  } catch (error) {
-    console.error('Gagal mengirim permohonan doa:', error)
+  } catch (error: any) {
+    if (error.response?.status === 401) {
+      errorMessage.value = 'Sesi Anda telah berakhir. Silakan masuk (login) kembali.'
+      authStore.logout()
+      setTimeout(() => {
+        handleClose()
+        router.push('/masuk')
+      }, 1200)
+    } else {
+      errorMessage.value = error.response?.data?.message || 'Gagal mengirim permohonan doa.'
+    }
   } finally {
     isSubmitting.value = false
   }
@@ -149,6 +223,11 @@ const handleSubmit = async () => {
 
           <form @submit.prevent="handleSubmit" class="space-y-6 flex-1 flex flex-col justify-between">
             <div class="space-y-6 overflow-y-auto pr-1">
+
+              <!-- Error Alert -->
+              <div v-if="errorMessage" class="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs font-medium text-red-700">
+                {{ errorMessage }}
+              </div>
               
               <!-- Textarea Content -->
               <div>
@@ -236,7 +315,7 @@ const handleSubmit = async () => {
                 </p>
               </div>
 
-              <!-- Community Selector Dropdown (When Komunitas is active) -->
+              <!-- Community Selector Cards (When Komunitas is active) -->
               <Transition
                 enter-active-class="transition duration-150 ease-out"
                 enter-from-class="opacity-0 -translate-y-1"
@@ -246,18 +325,39 @@ const handleSubmit = async () => {
                 leave-to-class="opacity-0 -translate-y-1"
               >
                 <div v-if="isGroup">
-                  <label for="group-select" class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                  <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2.5">
                     Pilih Komunitas
                   </label>
-                  <select
-                    id="group-select"
-                    v-model="selectedGroup"
-                    class="w-full px-4 py-3 rounded-xl border border-zinc-200 text-sm text-black focus:outline-none focus:border-black focus:ring-1 focus:ring-black bg-white cursor-pointer"
-                  >
-                    <option v-for="group in mockGroups" :key="group" :value="group">
-                      {{ group }}
-                    </option>
-                  </select>
+
+                  <div v-if="userGroups.length === 0" class="p-4 rounded-xl bg-zinc-50 border border-zinc-200 text-xs text-zinc-500">
+                    Anda belum bergabung dalam komunitas manapun.
+                  </div>
+
+                  <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <button
+                      v-for="group in userGroups"
+                      :key="group.id"
+                      type="button"
+                      @click="selectedGroupId = group.id"
+                      class="flex items-center justify-between p-3.5 rounded-xl border text-left text-xs font-medium transition-all cursor-pointer select-none"
+                      :class="[
+                        selectedGroupId === group.id
+                          ? 'bg-purple-900 text-white border-purple-900 shadow-xs'
+                          : 'bg-white text-zinc-800 border-zinc-200 hover:border-purple-300 hover:bg-purple-50/50'
+                      ]"
+                    >
+                      <div class="flex items-center gap-2.5 min-w-0">
+                        <div
+                          class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                          :class="selectedGroupId === group.id ? 'bg-white/20 text-white' : 'bg-purple-100 text-purple-700'"
+                        >
+                          <Users :size="14" />
+                        </div>
+                        <span class="truncate font-semibold">{{ group.name }}</span>
+                      </div>
+                      <Check v-if="selectedGroupId === group.id" :size="14" class="stroke-[2.5] shrink-0 ml-1" />
+                    </button>
+                  </div>
                 </div>
               </Transition>
 

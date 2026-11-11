@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Plus, Search, Filter, RefreshCw, Radio } from 'lucide-vue-next'
 import { mockRoomsState } from '@/data/mockRooms'
+import { useQueryState } from '@/composables/useQueryState'
 import RoomCard from '@/components/rooms/RoomCard.vue'
 import RoomSkeleton from '@/components/rooms/RoomSkeleton.vue'
 import CreateRoomModal from '@/components/rooms/CreateRoomModal.vue'
@@ -12,13 +13,19 @@ const router = useRouter()
 
 // UI state
 const searchQuery = ref('')
-const selectedSection = ref<'live' | 'scheduled' | 'ended'>('live')
+// selectedSection is synced with URL query param (?section=live|scheduled|ended).
+// Persists on refresh and restores on Back/Forward navigation.
+const selectedSection = useQueryState<'live' | 'scheduled' | 'ended'>('section', 'live')
 const isLoading = ref(false)
 const isCreateModalOpen = ref(false)
 
+// Route-driven modal state: open modal when on /create, close it when navigating away.
 const checkRouteState = () => {
   if (route.path.endsWith('/create')) {
     isCreateModalOpen.value = true
+  } else {
+    // Base route (/ruang-doa) — close modal (handles Back button)
+    isCreateModalOpen.value = false
   }
 }
 

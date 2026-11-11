@@ -15,4 +15,9 @@ class PrayerSupport extends Model
     protected $casts = [
         'prayed_at' => 'datetime',
     ];
+
+    public function prayerRequest()
+    {
+        return $this->belongsTo(PrayerRequest::class);
+    }
 }

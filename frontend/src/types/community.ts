@@ -6,6 +6,7 @@ export type MemberRole = 'owner' | 'admin' | 'member'
 
 export interface CommunityMember {
   id: string
+  userId?: string
   name: string
   username?: string
   avatar?: string
@@ -34,6 +35,8 @@ export interface Community {
   memberCount: number
   maxMembers?: number
   joinStatus: JoinStatus
+  userRole?: MemberRole | null
+  inviteCode?: string
   createdAt: string
   members: CommunityMember[]
   activities: CommunityActivity[]

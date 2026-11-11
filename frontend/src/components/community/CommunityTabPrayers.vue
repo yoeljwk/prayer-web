@@ -11,19 +11,11 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'open-share'): void
   (e: 'open-detail', id: string): void
+  (e: 'toggle-pray', id: string): void
 }>()
 
 const handleTogglePray = (id: string) => {
-  const item = props.community.prayers.find((p) => p.id === id)
-  if (item) {
-    if (item.hasPrayed) {
-      item.hasPrayed = false
-      item.prayerCount = Math.max(0, item.prayerCount - 1)
-    } else {
-      item.hasPrayed = true
-      item.prayerCount += 1
-    }
-  }
+  emit('toggle-pray', id)
 }
 </script>
 

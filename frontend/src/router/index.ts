@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import HomeView from '@/views/HomeView.vue'
 
 const router = createRouter({
@@ -45,6 +46,7 @@ const router = createRouter({
       path: '/permohonan-doa/create',
       name: 'prayer-requests-create',
       component: () => import('@/views/PrayerRequestsView.vue'),
+      meta: { requiresAuth: true },
     },
     {
       path: '/permohonan-doa/:id',
@@ -72,6 +74,7 @@ const router = createRouter({
       path: '/komunitas/create',
       name: 'community-create',
       component: () => import('@/views/CommunityView.vue'),
+      meta: { requiresAuth: true },
     },
     {
       path: '/komunitas/:slug',
@@ -98,6 +101,7 @@ const router = createRouter({
     {
       path: '/masuk',
       name: 'login',
+      alias: '/login',
       component: () => import('@/views/LoginView.vue'),
     },
     {
@@ -106,9 +110,16 @@ const router = createRouter({
       component: () => import('@/views/RegisterView.vue'),
     },
     {
+      path: '/dashboard',
+      name: 'dashboard',
+      component: () => import('@/views/DashboardView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/notifications',
       name: 'notifications',
       component: () => import('@/views/NotificationsView.vue'),
+      meta: { requiresAuth: true },
     },
   ],
   scrollBehavior(to, from, savedPosition) {
@@ -121,6 +132,17 @@ const router = createRouter({
     }
     return { top: 0 }
   },
+})
+
+// Centralized navigation guard.
+// useAuthStore() is called inside the callback (not at module level)
+// so it runs after pinia is initialized in main.ts.
+router.beforeEach((to) => {
+  const auth = useAuthStore()
+  if (to.meta.requiresAuth && !auth.isAuthenticated) {
+    // Preserve the intended destination so login can redirect back
+    return { name: 'login', query: { redirect: to.fullPath } }
+  }
 })
 
 export default router

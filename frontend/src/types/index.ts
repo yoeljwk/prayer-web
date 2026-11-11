@@ -18,6 +18,8 @@ export interface User {
   username?: string
   email: string
   avatar?: string
+  bio?: string
+  role?: string
 }
 
 export interface ApiResponse<T = unknown> {

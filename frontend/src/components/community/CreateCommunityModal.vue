@@ -2,7 +2,8 @@
 import { ref, watch } from 'vue'
 import { X, Globe, Lock, Upload, Image as ImageIcon } from 'lucide-vue-next'
 import type { CommunityVisibility } from '@/types'
-import { addCommunity } from '@/data/mockCommunities'
+import api from '@/services/api'
+import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{
   isOpen: boolean
@@ -13,11 +14,15 @@ const emit = defineEmits<{
   (e: 'created', slug: string): void
 }>()
 
+const authStore = useAuthStore()
+
 const name = ref('')
 const description = ref('')
 const visibility = ref<CommunityVisibility>('public')
 const maxMembers = ref<number | undefined>(undefined)
 const avatarUrl = ref('https://images.unsplash.com/photo-1519817650390-64a93db51149?w=150&auto=format&fit=crop&q=80')
+const isSubmitting = ref(false)
+const errorMessage = ref('')
 
 // Avatar presets
 const presetAvatars = [
@@ -32,7 +37,13 @@ const handleFileUpload = (event: Event) => {
   const target = event.target as HTMLInputElement
   if (target.files && target.files[0]) {
     const file = target.files[0]
-    avatarUrl.value = URL.createObjectURL(file)
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        avatarUrl.value = e.target.result as string
+      }
+    }
+    reader.readAsDataURL(file)
   }
 }
 
@@ -41,6 +52,7 @@ const resetForm = () => {
   description.value = ''
   visibility.value = 'public'
   maxMembers.value = undefined
+  errorMessage.value = ''
   avatarUrl.value = presetAvatars[0] || 'https://images.unsplash.com/photo-1519817650390-64a93db51149?w=150&auto=format&fit=crop&q=80'
 }
 
@@ -53,19 +65,36 @@ watch(
   }
 )
 
-const handleSubmit = () => {
-  if (!name.value.trim() || !description.value.trim()) return
+const handleSubmit = async () => {
+  if (!name.value.trim() || !description.value.trim() || isSubmitting.value) return
 
-  const created = addCommunity({
-    name: name.value.trim(),
-    description: description.value.trim(),
-    avatar: avatarUrl.value,
-    visibility: visibility.value,
-    maxMembers: maxMembers.value || undefined,
-  })
+  if (!authStore.isAuthenticated) {
+    errorMessage.value = 'Silakan masuk (login) terlebih dahulu untuk membuat komunitas.'
+    return
+  }
 
-  emit('created', created.slug)
-  emit('close')
+  isSubmitting.value = true
+  errorMessage.value = ''
+
+  try {
+    const res = await api.post('/groups', {
+      name: name.value.trim(),
+      description: description.value.trim(),
+      visibility: visibility.value,
+      max_members: maxMembers.value || null,
+      avatar: avatarUrl.value,
+    })
+
+    if (res.data && res.data.success && res.data.data) {
+      const createdSlug = res.data.data.slug || String(res.data.data.id)
+      emit('created', createdSlug)
+      emit('close')
+    }
+  } catch (err: any) {
+    errorMessage.value = err.response?.data?.message || 'Gagal membuat komunitas doa.'
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
@@ -117,6 +146,11 @@ const handleSubmit = () => {
 
               <!-- Body / Form -->
               <form @submit.prevent="handleSubmit" class="p-6 flex-1 overflow-y-auto space-y-6">
+                <!-- Error Alert -->
+                <div v-if="errorMessage" class="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs font-medium text-red-700">
+                  {{ errorMessage }}
+                </div>
+
                 <!-- Avatar Preview & Preset Selection -->
                 <div>
                   <label class="block text-xs font-semibold text-zinc-800 uppercase tracking-wider mb-2">

@@ -194,24 +194,23 @@ const handleTogglePray = async (id: string) => {
   const item = [...myPrayers.value, ...supportedPrayers.value].find((p) => p.id === id)
   if (!item) return
 
-  if (item.hasPrayed) {
-    item.hasPrayed = false
-    item.prayerCount = Math.max(0, item.prayerCount - 1)
-    try {
+  const prevHasPrayed = item.hasPrayed
+  const prevPrayerCount = item.prayerCount
+
+  item.hasPrayed = !prevHasPrayed
+  item.prayerCount = prevHasPrayed ? Math.max(0, prevPrayerCount - 1) : prevPrayerCount + 1
+
+  try {
+    if (prevHasPrayed) {
       await api.delete(`/prayers/${id}/support`)
-      fetchDashboardData()
-    } catch (e) {
-      console.error(e)
-    }
-  } else {
-    item.hasPrayed = true
-    item.prayerCount += 1
-    try {
+    } else {
       await api.post(`/prayers/${id}/support`)
-      fetchDashboardData()
-    } catch (e) {
-      console.error(e)
     }
+    fetchDashboardData()
+  } catch (e) {
+    item.hasPrayed = prevHasPrayed
+    item.prayerCount = prevPrayerCount
+    console.error(e)
   }
 }
 

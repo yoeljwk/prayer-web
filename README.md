@@ -118,6 +118,16 @@ prayer-web/
 
 ---
 
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork or create a feature branch (`git checkout -b feature/your-feature`).
+2. Commit your changes with clear, descriptive messages.
+3. Open a Pull Request targeting `main`.
+
+---
+
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).

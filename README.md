@@ -34,7 +34,7 @@ Built with **Laravel 11** as the backend and **Vue 3 + TypeScript** as the front
 
 ### Prerequisites
 - PHP >= 8.2
-- Composer
+- Composer >= 2.x
 - Node.js >= 18
 - npm
 
@@ -72,7 +72,7 @@ prayer-web/
 
 ## 🤝 Contributing
 
-Contributions are welcome! Feel free to create a feature branch and submit a pull request.
+Contributions are welcome! Feel free to fork the repository, create a feature branch, and submit a pull request.
 
 ## 📄 License
 

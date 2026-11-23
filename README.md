@@ -34,7 +34,7 @@ Built with **Laravel 11** as the backend and **Vue 3 + TypeScript** as the front
 
 ### Prerequisites
 - PHP >= 8.2
-- Composer
+- Composer >= 2.x
 - Node.js >= 18
 - npm
 
